@@ -7,6 +7,7 @@ const showData = (companies, fieldName) => {
     const toLine = company => `<strong>${company.Name}</strong> <i>${company[fieldName]}</i>`;
     document.querySelector('#chart-data').innerHTML = companies.map(toLine).join('<hr/>');
 }
+
 const drawChart = (companies) => {
 
     const colorScheme = d3.scaleOrdinal(d3.schemeCategory10)
@@ -44,12 +45,16 @@ const drawChart = (companies) => {
     const x_axis = d3.axisBottom(x);
 
     g.append('g').attr('class', 'y-axis').call(y_axis);
-    g.append('g').attr('class', 'x-axis')
+    g.append('g')
+        .attr('class', 'x-axis')
         .attr('transform', `translate(0,${height})`)
         .call(x_axis);
 
 
-    g.selectAll('.x-axis text').attr('x', -5).attr('y', 10).attr('transform', 'rotate(-40)')
+    g.selectAll('.x-axis text')
+        .attr('x', -5)
+        .attr('y', 10)
+        .attr('transform', 'rotate(-40)')
         .attr('text-anchor', 'end');
 
     const rects = g.selectAll('rect').data(companies);
@@ -64,6 +69,7 @@ const drawChart = (companies) => {
 
 const percentageFormat = d => `${d}%`
 const kCroreFormat = d => `${d / 1000}k Cr ₹`
+
 const formats = {
     MarketCap: kCroreFormat,
     QSales: kCroreFormat,
@@ -87,6 +93,7 @@ const updateCompanies = (companies, fieldName) => {
 
     const x_axis = d3.axisBottom(x);
     const y_axis = d3.axisLeft(y).ticks(10).tickFormat(formats[fieldName]);
+
     svg.select('.y-axis').call(y_axis);
     svg.select('.x-axis').call(x_axis);
 
@@ -122,10 +129,17 @@ const drawCompanies = (companies) => {
 
 const main = () => {
     d3.csv('data/companies.csv', parseCompanies).then((companies) => {
+
         drawCompanies(companies);
+        
         const fields = "CMP,PE,MarketCap,DivYld,QNetProfit,QSales,ROCE".split(',');
         let step = 1;
-        setInterval(() => { let field = fields[step++ % fields.length]; updateCompanies(companies, field); showData(companies, field) }, 1500)
+
+        setInterval(() => { 
+            let field = fields[step++ % fields.length];
+             updateCompanies(companies, field); 
+             showData(companies, field) }, 1500)
+
         setInterval(() => companies.shift(), 5000)
     });
 }
