@@ -9,8 +9,7 @@ const showData = (companies, fieldName) => {
     document.querySelector('#chart-data').innerHTML = companies.map(toLine).join('<hr/>');
 }
 
-const drawChart = (companies) => {
-
+const drawChart = () => {
     const svg = d3.select('#chart-area svg')
         .attr('height', chartSize.height)
         .attr('width', chartSize.width);
@@ -30,26 +29,13 @@ const drawChart = (companies) => {
         .attr('transform', "rotate(-90)")
         .attr('x', -height / 2)
         .attr('y', -60)
-        // .text("CMP");
 
+    g.append('g')
+        .attr('class', 'y-axis')
 
-    const y = d3.scaleLinear()
-        .domain([0, _.maxBy(companies, 'CMP').CMP])
-        .range([height, 0]);
-
-    const x = d3.scaleBand()
-        .domain(_.map(companies, 'Name'))
-        .range([0, width])
-        .padding(0.3);
-
-    const y_axis = d3.axisLeft(y).ticks(10);
-    const x_axis = d3.axisBottom(x);
-
-    g.append('g').attr('class', 'y-axis').call(y_axis);
     g.append('g')
         .attr('class', 'x-axis')
         .attr('transform', `translate(0,${height})`)
-        .call(x_axis);
 
 
     g.selectAll('.x-axis text')
@@ -57,15 +43,6 @@ const drawChart = (companies) => {
         .attr('y', 10)
         .attr('transform', 'rotate(-40)')
         .attr('text-anchor', 'end');
-
-    const rects = g.selectAll('rect').data(companies);
-    const newRects = rects.enter();
-    newRects.append('rect')
-        .attr('x', company => x(company.Name))
-        .attr('y', company => y(company.CMP))
-        .attr('width', x.bandwidth)
-        .attr('height', company => y(0) - y(company.CMP))
-        .attr('fill', company => colorScheme(company.Name));
 }
 
 const percentageFormat = d => `${d}%`
@@ -80,6 +57,7 @@ const formats = {
 }
 
 const updateCompanies = (companies, fieldName) => {
+    showData(companies, fieldName)
     const svg = d3.select("#chart-area svg");
     svg.select('.y.axis-label').text(fieldName);
 
@@ -100,6 +78,8 @@ const updateCompanies = (companies, fieldName) => {
 
     const companiesG = svg.select('.companies');
     const rects = companiesG.selectAll('rect').data(companies, c => c.Name);
+
+    const t = d3.transition().duration(1000).ease(d3.easeLinear);
     rects
         .exit()
         .remove()
@@ -111,9 +91,7 @@ const updateCompanies = (companies, fieldName) => {
         .attr('y', y(0))
         .attr('width', x.bandwidth)
         .merge(rects)
-        .transition()
-        .duration(1000)
-        .ease(d3.easeLinear)
+        .transition(t)
         .attr('y', c => y(c[fieldName]))
         .attr('x', c => x(c.Name))
         .attr('width', x.bandwidth)
@@ -131,11 +109,6 @@ const parseCompanies = (company) => {
     return company;
 }
 
-const drawCompanies = (companies) => {
-    showData(companies, 'CMP');
-    drawChart(companies);
-}
-
 const frequentlyMoveCompanies = (src, dest) => {
     setInterval(() => {
         const c = src.shift();
@@ -145,23 +118,23 @@ const frequentlyMoveCompanies = (src, dest) => {
     }, 1500);
 }
 
+const startVisualization = (companies) => {
+    const fields = _.keys(companies[0]).slice(1)
+    let step = 1;
+
+    drawChart();
+    frequentlyMoveCompanies(companies, []);
+    updateCompanies(companies, fields[0]);
+
+    setInterval(() => {
+        let field = fields[step++ % fields.length];
+        updateCompanies(companies, field);
+    }, 1000);
+
+}
+
 const main = () => {
-    d3.csv('data/companies.csv', parseCompanies).then((companies) => {
-
-        drawCompanies(companies);
-        frequentlyMoveCompanies(companies, []);
-
-
-        const fields = "CMP,PE,MarketCap,DivYld,QNetProfit,QSales,ROCE".split(',');
-        updateCompanies(companies,fields[0])
-        let step = 1;
-
-        setInterval(() => {
-            let field = fields[step++ % fields.length];
-            updateCompanies(companies, field);
-            showData(companies, field)
-        }, 1000)
-    });
+    d3.csv('data/companies.csv', parseCompanies).then(startVisualization);
 }
 
 window.onload = main;
