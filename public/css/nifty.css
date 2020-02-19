@@ -19,6 +19,12 @@ svg {
 
 .close{
     fill: none;
+    stroke: black;
+    stroke-width: 2px;
+}
+
+.sma{
+    fill: none;
     stroke: blue;
     stroke-width: 2px;
 }
