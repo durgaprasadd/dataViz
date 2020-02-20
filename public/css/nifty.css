@@ -41,3 +41,11 @@ svg {
     align-items: center;
     justify-content: space-around;
 }
+
+#sma-period{
+    width: 120px;
+}
+
+#offset{
+    width: 80px;
+}

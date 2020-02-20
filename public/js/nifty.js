@@ -79,14 +79,12 @@ const getEndIndex = (quotes, end) => {
 const getQuotesInRange = (quotes, begin, end) => {
     const startIndex = getStartIndex(quotes, begin);
     const endIndex = getEndIndex(quotes, end);
-    console.log(startIndex, endIndex)
     return quotes.slice(startIndex, endIndex + 1);
 }
 
 const showSlider = (quotes) => {
     const fqDate = _.first(quotes).Date;
     const lqDate = _.last(quotes).Date;
-    console.log(fqDate.getTime())
     var slider = createD3RangeSlider(fqDate.getTime(), lqDate.getTime(), "#slider-container");
     slider.range(fqDate.getTime(), lqDate.getTime())
     d3.select("#range-label").text(getRange(fqDate, lqDate));
@@ -94,12 +92,14 @@ const showSlider = (quotes) => {
         d3.select("#range-label").text(getRange(begin, end));
         const selectedQuotes = getQuotesInRange(quotes, begin, end);
         renderSelectedQuotes(selectedQuotes, "Date", "Close");
+        document.getElementById('sma-period').onchange = updateSmaAndOffset.bind(null, quotes, selectedQuotes);
+        document.getElementById('offset').onchange = updateSmaAndOffset.bind(null, quotes, selectedQuotes);
+
     });
 
 }
 
 const renderSelectedQuotes = (quotes, fieldName1, fieldName2) => {
-    console.log(quotes);
     const svg = d3.select("#chart-area svg");
     svg.select('.y.axis-label').text(fieldName2);
     const fqDate = _.first(quotes).Date;
@@ -129,16 +129,25 @@ const renderSelectedQuotes = (quotes, fieldName1, fieldName2) => {
     g.select(".close")
         .attr("d", line(quotes))
     let startSma = 0;
-    _.some(quotes, (quote, index) => { return quote.sma && (startSma = index) })
-    console.log(startSma)
+    _.some(quotes, (quote, index) => {
+        if (quote.sma) {
+            startSma = index;
+            return true;
+        }
+        return false
+    })
     g.select(".sma")
         .attr("d", smaLine(quotes.slice(startSma)))
 }
 
-
-
-
-
+const updateSmaAndOffset = (totalQuotes, selectedQuotes) => {
+    totalQuotes.forEach(quote => delete quote.sma)
+    const period = +document.getElementById('sma-period').value || 100;
+    const offset = +document.getElementById('offset').value || 0;
+    analyseData(totalQuotes, period, offset);
+    console.log(period,offset)
+    renderSelectedQuotes(selectedQuotes, "Date", "Close")
+}
 
 const updateQuotes = (quotes, fieldName1, fieldName2) => {
     // showData(quotes, fieldName1, fieldName2)
@@ -212,11 +221,11 @@ const applyStrategy = (quotes, period) => {
     return { boughtTimes, soldTimes, investment, bought, period }
 }
 
-const analyseData = (quotes, period) => {
-    for (let i = period; i < quotes.length + 1; i++) {
+const analyseData = (quotes, period, offset = 0) => {
+    for (let i = period; i < quotes.length + 1 - offset; i++) {
         let sum = quotes.slice(i - period, i).reduce((a, b) => a + b.Close, 0);
-        const sma = _.round(sum / 100);
-        quotes[i - 1].sma = sma
+        const sma = _.round(sum / period);
+        quotes[i - 1 + offset].sma = sma
     }
 }
 
@@ -238,6 +247,12 @@ const startVisualization = (quotes) => {
     drawChart();
     updateQuotes(quotes, "Date", "Close");
     showSlider(quotes);
+    smaElement = document.getElementById('sma-period');
+    offsetElement = document.getElementById('offset');
+    smaElement.onchange = updateSmaAndOffset.bind(null, quotes, quotes);
+    smaElement.max = quotes.length;
+    offsetElement.max = quotes.length;
+    offsetElement.onchange = updateSmaAndOffset.bind(null, quotes, quotes);
 
 }
 
