@@ -28,3 +28,16 @@ svg {
     stroke: blue;
     stroke-width: 2px;
 }
+
+#slider-container{
+    position: relative;
+    background-color: gray;
+    height: 20px;
+    width: 1000px;
+}
+
+.input{
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+}
