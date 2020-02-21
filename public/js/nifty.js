@@ -4,11 +4,6 @@ const width = chartSize.width - margin.left - margin.right;
 const height = chartSize.height - margin.top - margin.bottom;
 const colorScheme = d3.scaleOrdinal(d3.schemeCategory10)
 
-const showData = (quotes, fieldName1, fieldName2) => {
-    const toLine = quote => `<strong>${quote[fieldName1]}</strong> <i>${quote[fieldName2]}</i>`;
-    document.querySelector('#chart-data').innerHTML = quotes.map(toLine).join('<hr/>');
-}
-
 const drawChart = () => {
     const svg = d3.select('#chart-area svg')
         .attr('height', chartSize.height)
@@ -40,68 +35,35 @@ const drawChart = () => {
     g.selectAll('.x-axis text')
         .attr('x', -5)
         .attr('y', 10)
-        .attr('transform', 'rotate(-40)')
-        .attr('text-anchor', 'end');
-}
-
-const percentageFormat = d => `${d}%`
-const kCroreFormat = d => `${d / 1000}k Cr ₹`
-
-const formats = {
-    MarketCap: kCroreFormat,
-    QSales: kCroreFormat,
-    QNetProfit: kCroreFormat,
-    DivYld: percentageFormat,
-    ROCE: percentageFormat
-}
-
-const getLocaleDate = (TimeStamp) => new Date(TimeStamp).toLocaleDateString('en-GB');
-const getRange = (begin, end) => getLocaleDate(begin) + "  -  " + getLocaleDate(end);
-
-const getStartIndex = (quotes, begin) => {
-    for (i = 0; i < quotes.length; i++) {
-        if (quotes[i].Date.getTime() >= begin) {
-            return i;
-        }
-    }
-    return 0;
-}
-
-const getEndIndex = (quotes, end) => {
-    for (i = quotes.length - 1; i >= 0; i--) {
-        if (quotes[i].Date.getTime() <= end) {
-            return i;
-        }
-    }
-    return quotes.length - 1;
-}
-
-const getQuotesInRange = (quotes, begin, end) => {
-    const startIndex = getStartIndex(quotes, begin);
-    const endIndex = getEndIndex(quotes, end);
-    return quotes.slice(startIndex, endIndex + 1);
 }
 
 const showSlider = (quotes) => {
-    const fqDate = _.first(quotes).Date;
-    const lqDate = _.last(quotes).Date;
-    var slider = createD3RangeSlider(fqDate.getTime(), lqDate.getTime(), "#slider-container");
-    slider.range(fqDate.getTime(), lqDate.getTime())
-    d3.select("#range-label").text(getRange(fqDate, lqDate));
-    slider.onChange(function ({ begin, end }) {
-        d3.select("#range-label").text(getRange(begin, end));
-        const selectedQuotes = getQuotesInRange(quotes, begin, end);
-        renderSelectedQuotes(selectedQuotes, "Date", "Close");
-        document.getElementById('sma-period').onchange = updateSmaAndOffset.bind(null, quotes, selectedQuotes);
-        document.getElementById('offset').onchange = updateSmaAndOffset.bind(null, quotes, selectedQuotes);
+    const slider = d3
+        .sliderBottom()
+        .min(0)
+        .max(quotes.length - 1)
+        .width(600)
+        .tickFormat(i => quotes[_.floor(i)].Date.toString().split(" ")[3])
+        .ticks(10)
+        .fill('#3498db')
+        .default([0, quotes.length - 1])
+        .on("onchange", ([begin, end]) => {
+            const selectedQuotes = quotes.slice(_.floor(begin), _.ceil(end))
+            renderSelectedQuotes(selectedQuotes, "Date", "Close")
+            d3.select('#sma-period').on('change', updateSmaAndOffset.bind(null, quotes, selectedQuotes));
+            d3.select('#offset').on('change', updateSmaAndOffset.bind(null, quotes, selectedQuotes));
+        })
 
-    });
-
+    d3.select('#slider-container')
+        .attr('width', 700)
+        .attr('height', 50)
+        .append('g')
+        .attr('transform', 'translate(11,8)')
+        .call(slider)
 }
 
 const renderSelectedQuotes = (quotes, fieldName1, fieldName2) => {
     const svg = d3.select("#chart-area svg");
-    svg.select('.y.axis-label').text(fieldName2);
     const fqDate = _.first(quotes).Date;
     const lqDate = _.last(quotes).Date;
     const maxClose = _.get(_.maxBy(quotes, fieldName2), fieldName2, 0)
@@ -117,7 +79,7 @@ const renderSelectedQuotes = (quotes, fieldName1, fieldName2) => {
         .range([0, width])
 
     const x_axis = d3.axisBottom(x);
-    const y_axis = d3.axisLeft(y).ticks(10).tickFormat(formats[fieldName2]);
+    const y_axis = d3.axisLeft(y).ticks(10);
 
     svg.select('.y-axis').call(y_axis);
     svg.select('.x-axis').call(x_axis);
@@ -128,6 +90,20 @@ const renderSelectedQuotes = (quotes, fieldName1, fieldName2) => {
 
     g.select(".close")
         .attr("d", line(quotes))
+
+    g.select(".sma")
+        .attr("d", smaLine(quotes.slice(getSmaStartingIndex(quotes))));
+}
+
+const updateSmaAndOffset = (totalQuotes, selectedQuotes) => {
+    totalQuotes.forEach(quote => delete quote.sma)
+    const period = +d3.select('#sma-period').property('value') || 100;
+    const offset = +d3.select('#offset').property('value') || 0;
+    analyseData(totalQuotes, period, offset);
+    renderSelectedQuotes(selectedQuotes, "Date", "Close")
+}
+
+const getSmaStartingIndex = (quotes) => {
     let startSma = 0;
     _.some(quotes, (quote, index) => {
         if (quote.sma) {
@@ -136,21 +112,10 @@ const renderSelectedQuotes = (quotes, fieldName1, fieldName2) => {
         }
         return false
     })
-    g.select(".sma")
-        .attr("d", smaLine(quotes.slice(startSma)))
-}
-
-const updateSmaAndOffset = (totalQuotes, selectedQuotes) => {
-    totalQuotes.forEach(quote => delete quote.sma)
-    const period = +document.getElementById('sma-period').value || 100;
-    const offset = +document.getElementById('offset').value || 0;
-    analyseData(totalQuotes, period, offset);
-    console.log(period,offset)
-    renderSelectedQuotes(selectedQuotes, "Date", "Close")
+    return startSma;
 }
 
 const updateQuotes = (quotes, fieldName1, fieldName2) => {
-    // showData(quotes, fieldName1, fieldName2)
     const svg = d3.select("#chart-area svg");
     svg.select('.y.axis-label').text(fieldName2);
     const fqDate = _.first(quotes).Date;
@@ -167,7 +132,7 @@ const updateQuotes = (quotes, fieldName1, fieldName2) => {
         .range([0, width])
 
     const x_axis = d3.axisBottom(x);
-    const y_axis = d3.axisLeft(y).ticks(10).tickFormat(formats[fieldName2]);
+    const y_axis = d3.axisLeft(y).ticks(10);
 
     svg.select('.y-axis').call(y_axis);
     svg.select('.x-axis').call(x_axis);
@@ -180,11 +145,9 @@ const updateQuotes = (quotes, fieldName1, fieldName2) => {
         .attr("class", "close")
         .attr("d", line(quotes))
 
-    let startSma = 0;
-    _.some(quotes, (quote, index) => { return quote.sma && (startSma = index) })
     g.append("path")
         .attr("class", "sma")
-        .attr("d", smaLine(quotes.slice(startSma)))
+        .attr("d", smaLine(quotes.slice(getSmaStartingIndex(quotes))));
 }
 
 const parseQuotes = (quote) => {
@@ -229,30 +192,19 @@ const analyseData = (quotes, period, offset = 0) => {
     }
 }
 
-const analyseStrategy = (quotes) => {
-    const analysis = []
-    for (let i = 1; i < quotes.length; i++) {
-        let duplicate = quotes.slice();
-        analyseData(duplicate, i);
-        analysis.push(applyStrategy(duplicate, i));
-    }
-    console.log(_.maxBy(analysis, "investment"))
-}
-
 const startVisualization = (quotes) => {
-    // let duplicate = quotes.slice();
-    // analyseStrategy(duplicate);
     analyseData(quotes, 100);
     console.log(applyStrategy(quotes, 100));
     drawChart();
     updateQuotes(quotes, "Date", "Close");
     showSlider(quotes);
-    smaElement = document.getElementById('sma-period');
-    offsetElement = document.getElementById('offset');
-    smaElement.onchange = updateSmaAndOffset.bind(null, quotes, quotes);
-    smaElement.max = quotes.length;
-    offsetElement.max = quotes.length;
-    offsetElement.onchange = updateSmaAndOffset.bind(null, quotes, quotes);
+
+    d3.select('#sma-period')
+        .attr('max', quotes.length)
+        .on('change', updateSmaAndOffset.bind(null, quotes, quotes))
+    d3.select('#offset')
+        .attr('max', quotes.length)
+        .on('change', updateSmaAndOffset.bind(null, quotes, quotes))
 
 }
 

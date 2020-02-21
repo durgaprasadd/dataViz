@@ -20,18 +20,17 @@
 
     <!-- Range slider style -->
     <link href="https://cdn.rawgit.com/RasmusFonseca/d3RangeSlider/master/d3RangeSlider.css" rel="stylesheet">
-
+    <script src="https://unpkg.com/d3-simple-slider"></script>
     <script src="js/nifty.js"></script>
 
     <!-- <div class="container"> -->
     <div>
         <row class="col-sm">
             <div class="input">
-            <div id="slider-container"></div>
+            <svg id="slider-container"></svg>
             <input type="number" id="sma-period" min=1 placeholder="SMA interval">
             <input type="number" min=0 id="offset" placeholder="offset">
             </div>
-            <div id="range-label"></div>
         </row>
         <div id="chart-area" class="col-sm">
             <svg></svg>
