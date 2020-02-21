@@ -27,15 +27,23 @@
     <div>
         <row class="col-sm">
             <div class="input">
-            <svg id="slider-container"></svg>
-            <input type="number" id="sma-period" min=1 placeholder="SMA interval">
-            <input type="number" min=0 id="offset" placeholder="offset">
+                <svg id="slider-container"></svg>
+                <input type="number" id="sma-period" min=1 placeholder="SMA interval">
+                <input type="number" min=0 id="offset" placeholder="offset">
             </div>
         </row>
         <div id="chart-area" class="col-sm">
             <svg></svg>
         </div>
-        <!-- <div id="chart-data" class="col-sm"></div> -->
+        <div class="tables">
+            <!-- <div id="chart-data" class="col-sm"></div> -->
+            <table border="2" class="table table-striped" id="transactions">
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+            <table border="2" id="analysis" class="table table-striped">
+            </table>
+        </div>
     </div>
 </body>
 

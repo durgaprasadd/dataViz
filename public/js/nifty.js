@@ -101,6 +101,31 @@ const updateSmaAndOffset = (totalQuotes, selectedQuotes) => {
     const offset = +d3.select('#offset').property('value') || 0;
     analyseData(totalQuotes, period, offset);
     renderSelectedQuotes(selectedQuotes, "Date", "Close")
+    const transactions = getTransactions(totalQuotes, period);
+    updateTransactions(transactions);
+    const analysis = analyseTransactions(transactions);
+    updateAnalysis(analysis);
+}
+
+const updateTransactions = (transactions) => {
+    const transactionsG = d3.select("#transactions tbody").selectAll('tr').data(transactions);
+    transactionsG.exit().remove();
+    const transactionsTd = transactionsG
+        .enter()
+        .append('tr')
+        .merge(transactionsG)
+        .selectAll('td')
+        .data(Object.values)
+    transactionsTd.exit().remove();
+    transactionsTd.enter()
+        .append('td')
+        .merge(transactionsTd)
+        .text(d => d)
+}
+
+const updateAnalysis = (analysis) => {
+    const analysisG = d3.select("#analysis").selectAll('tr').data(Object.keys(analysis));
+    analysisG.select('td').text(d => analysis[d])
 }
 
 const getSmaStartingIndex = (quotes) => {
@@ -162,26 +187,28 @@ const parseQuotes = (quote) => {
     return quote;
 }
 
-const applyStrategy = (quotes, period) => {
-    let boughtTimes = 0;
-    let soldTimes = 0;
-    let investment = 100;
-    let stocks = 0;
+const getTransactions = (quotes, period) => {
     let bought = false;
+    let transaction = {};
+    let transactions = [];
     for (let i = period - 1; i < quotes.length; i++) {
         let { Close, sma } = quotes[i];
         if (!bought && Close > sma) {
             bought = true;
-            boughtTimes++;
-            stocks = investment / Close;
+            transaction['S.No'] = transactions.length + 1;
+            transaction['buy price'] = _.round(Close);
+            transaction['buy date'] = quotes[i].Date.toLocaleDateString('en-GB');
         }
         if (bought && (Close < sma || i == quotes.length - 1)) {
-            soldTimes++;
             bought = false;
-            investment = stocks * Close;
+            transaction['sell price'] = _.round(Close);
+            transaction['sell date'] = quotes[i].Date.toLocaleDateString('en-GB');
+            transaction['net'] = transaction['sell price'] - transaction['buy price'];
+            transactions.push(transaction);
+            transaction = {};
         }
     }
-    return { boughtTimes, soldTimes, investment, bought, period }
+    return transactions;
 }
 
 const analyseData = (quotes, period, offset = 0) => {
@@ -192,9 +219,79 @@ const analyseData = (quotes, period, offset = 0) => {
     }
 }
 
+const showTransactions = (transactions) => {
+    const transactionsG = d3.select('#transactions');
+    transactionsG.select('thead').append('tr')
+        .selectAll('th')
+        .data(Object.keys(transactions[0]))
+        .enter()
+        .append('th')
+        .text(d => d);
+
+    transactionsG
+        .select('tbody')
+        .selectAll('tr')
+        .data(transactions)
+        .enter()
+        .append('tr')
+        .selectAll('td')
+        .data(Object.values)
+        .enter()
+        .append('td')
+        .text(d => d);
+}
+
+
+const analyseTransactions = (transactions) => {
+    let wins = 0;
+    let winAmount = 0;
+    let losses = 0;
+    let lossAmount = 0;
+    transactions.forEach(({ net }) => {
+        if (net > 0) {
+            wins++;
+            winAmount += net;
+        }
+        if (net < 0) {
+            losses++;
+            lossAmount += net;
+        }
+    })
+    const played = transactions.length;
+    const winPercentage = _.round((wins / played) * 100);
+    const winAverage = _.round(winAmount / wins);
+    const lossAverage = _.round(- (lossAmount / losses));
+    const totalProfit = winAmount + lossAmount;
+    const winMultiple = _.round(winAverage / lossAverage);
+    const expectancy = _.round(totalProfit / played);
+    return { played, wins, losses, winPercentage, winAverage, lossAverage, totalProfit, winMultiple, expectancy }
+}
+
+
+const getClass = (i) => i % 2 == 0 ? "white" : "whitesmoke";
+
+const showAnalysis = (analysis) => {
+    const analysisG = d3.select("#analysis")
+        .selectAll('tr')
+        .data(Object.keys(analysis))
+        .enter()
+        .append('tr');
+    analysisG
+        .append('th')
+        .text(d => d)
+        .attr("class", (d, i) => getClass(i));
+    analysisG
+        .append('td')
+        .text(d => analysis[d])
+        .attr("class", (d, i) => getClass(i))
+}
+
 const startVisualization = (quotes) => {
     analyseData(quotes, 100);
-    console.log(applyStrategy(quotes, 100));
+    const transactions = getTransactions(quotes, 100);
+    showTransactions(transactions);
+    const analysis = analyseTransactions(transactions);
+    showAnalysis(analysis);
     drawChart();
     updateQuotes(quotes, "Date", "Close");
     showSlider(quotes);
