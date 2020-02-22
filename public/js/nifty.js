@@ -78,8 +78,8 @@ const renderSelectedQuotes = (quotes, fieldName1, fieldName2) => {
         .domain([fqDate, lqDate])
         .range([0, width])
 
-    const x_axis = d3.axisBottom(x);
-    const y_axis = d3.axisLeft(y).ticks(10);
+    const x_axis = d3.axisBottom(x).tickSize(-height);
+    const y_axis = d3.axisLeft(y).ticks(10).tickSize(-width);
 
     svg.select('.y-axis').call(y_axis);
     svg.select('.x-axis').call(x_axis);
@@ -101,10 +101,6 @@ const updateSmaAndOffset = (totalQuotes, selectedQuotes) => {
     const offset = +d3.select('#offset').property('value') || 0;
     analyseData(totalQuotes, period, offset);
     renderSelectedQuotes(selectedQuotes, "Date", "Close")
-    const transactions = getTransactions(totalQuotes, period);
-    updateTransactions(transactions);
-    const analysis = analyseTransactions(transactions);
-    updateAnalysis(analysis);
 }
 
 const updateTransactions = (transactions) => {
@@ -156,8 +152,8 @@ const updateQuotes = (quotes, fieldName1, fieldName2) => {
         .domain([fqDate, lqDate])
         .range([0, width])
 
-    const x_axis = d3.axisBottom(x);
-    const y_axis = d3.axisLeft(y).ticks(10);
+    const x_axis = d3.axisBottom(x).tickSize(-height);
+    const y_axis = d3.axisLeft(y).ticks(10).tickSize(-width);
 
     svg.select('.y-axis').call(y_axis);
     svg.select('.x-axis').call(x_axis);
@@ -187,13 +183,13 @@ const parseQuotes = (quote) => {
     return quote;
 }
 
-const getTransactions = (quotes, period) => {
+const getTransactions = (quotes, period, tolerance = 0) => {
     let bought = false;
     let transaction = {};
     let transactions = [];
     for (let i = period - 1; i < quotes.length; i++) {
         let { Close, sma } = quotes[i];
-        if (!bought && Close > sma) {
+        if (!bought && Close > sma+tolerance) {
             bought = true;
             transaction['S.No'] = transactions.length + 1;
             transaction['buy price'] = _.round(Close);
@@ -286,6 +282,19 @@ const showAnalysis = (analysis) => {
         .attr("class", (d, i) => getClass(i))
 }
 
+const readValue = id => d3.select(id).property('value')
+
+const updateTransactionsAndAnalysis = (quotes) => {
+    const period = + readValue('#sma') || 100;
+    const tolerance = + readValue('#tolerance') || 0;
+    analyseData(quotes, period);
+    const transactions = getTransactions(quotes, period, tolerance);
+    updateTransactions(transactions);
+    const analysis = analyseTransactions(transactions);
+    updateAnalysis(analysis);
+}
+
+
 const startVisualization = (quotes) => {
     analyseData(quotes, 100);
     const transactions = getTransactions(quotes, 100);
@@ -302,6 +311,10 @@ const startVisualization = (quotes) => {
     d3.select('#offset')
         .attr('max', quotes.length)
         .on('change', updateSmaAndOffset.bind(null, quotes, quotes))
+
+    d3.selectAll('.user-input input')
+        .attr('max', quotes.length)
+        .on('change', updateTransactionsAndAnalysis.bind(null, quotes.slice()))
 
 }
 
