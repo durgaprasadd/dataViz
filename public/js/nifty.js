@@ -50,8 +50,7 @@ const showSlider = (quotes) => {
         .on("onchange", ([begin, end]) => {
             const selectedQuotes = quotes.slice(_.floor(begin), _.ceil(end))
             renderSelectedQuotes(selectedQuotes, "Date", "Close")
-            d3.select('#sma-period').on('change', updateSmaAndOffset.bind(null, quotes, selectedQuotes));
-            d3.select('#offset').on('change', updateSmaAndOffset.bind(null, quotes, selectedQuotes));
+            d3.selectAll('.input input').on('change', updateSMAs.bind(null, quotes, selectedQuotes));
         })
 
     d3.select('#slider-container')
@@ -63,13 +62,14 @@ const showSlider = (quotes) => {
 }
 
 const renderSelectedQuotes = (quotes, fieldName1, fieldName2) => {
+    const SMAs = ['sma1', 'sma2', 'sma3']
     const svg = d3.select("#chart-area svg");
     const fqDate = _.first(quotes).Date;
     const lqDate = _.last(quotes).Date;
     const maxClose = _.get(_.maxBy(quotes, fieldName2), fieldName2, 0)
     const minClose = _.get(_.minBy(quotes, fieldName2), fieldName2, 0)
-    const maxSma = _.get(_.maxBy(quotes, "sma"), "sma", 0);
-    const minSma = _.get(_.minBy(quotes, "sma"), "sma", 0);
+    const maxSma = _.max(SMAs.map(sma => _.get(_.maxBy(quotes, sma), sma)));
+    const minSma = _.min(SMAs.map(sma => _.get(_.minBy(quotes, sma), sma)));
     const y = d3.scaleLinear()
         .domain([Math.min(minClose, minSma), Math.max(maxClose, maxSma)])
         .range([height, 0]);
@@ -86,20 +86,20 @@ const renderSelectedQuotes = (quotes, fieldName1, fieldName2) => {
     const g = d3.select('.prices')
 
     const line = d3.line().x(q => x(q[fieldName1])).y(q => y(q[fieldName2]))
-    const smaLine = d3.line().x(q => x(q[fieldName1])).y(q => y(q.sma))
+    const smaLine = id => d3.line().x(q => x(q[fieldName1])).y(q => y(q[id]))
 
     g.select(".close")
         .attr("d", line(quotes))
 
-    g.select(".sma")
-        .attr("d", smaLine(quotes.slice(getSmaStartingIndex(quotes))));
+    g.selectAll(".sma")
+        .attr("d", (d, i) => smaLine(SMAs[i])(getQuotesOfSma(quotes, SMAs[i])));
 }
 
-const updateSmaAndOffset = (totalQuotes, selectedQuotes) => {
-    totalQuotes.forEach(quote => delete quote.sma)
-    const period = +d3.select('#sma-period').property('value') || 100;
-    const offset = +d3.select('#offset').property('value') || 0;
-    analyseData(totalQuotes, period, offset);
+const updateSMAs = (totalQuotes, selectedQuotes) => {
+    const SMAs = ['sma1', 'sma2', 'sma3'];
+    const periods = SMAs.map(id => +readValue('#' + id))
+    totalQuotes.forEach(quote => SMAs.forEach(sma => delete quote[sma]))
+    periods.forEach((period, i) => analyseData(totalQuotes, period, SMAs[i]));
     renderSelectedQuotes(selectedQuotes, "Date", "Close")
 }
 
@@ -124,16 +124,16 @@ const updateAnalysis = (analysis) => {
     analysisG.select('td').text(d => analysis[d])
 }
 
-const getSmaStartingIndex = (quotes) => {
-    let startSma = 0;
+const getQuotesOfSma = (quotes, id) => {
+    let startSma = quotes.length;
     _.some(quotes, (quote, index) => {
-        if (quote.sma) {
+        if (quote[id]) {
             startSma = index;
             return true;
         }
         return false
     })
-    return startSma;
+    return quotes.slice(startSma);
 }
 
 const updateQuotes = (quotes, fieldName1, fieldName2) => {
@@ -160,7 +160,7 @@ const updateQuotes = (quotes, fieldName1, fieldName2) => {
     const g = d3.select('.prices')
 
     const line = d3.line().x(q => x(q[fieldName1])).y(q => y(q[fieldName2]))
-    const smaLine = d3.line().x(q => x(q[fieldName1])).y(q => y(q.sma))
+    const smaLine = id => d3.line().x(q => x(q[fieldName1])).y(q => y(q[id]))
 
     g.append("path")
         .attr("class", "close")
@@ -168,7 +168,16 @@ const updateQuotes = (quotes, fieldName1, fieldName2) => {
 
     g.append("path")
         .attr("class", "sma")
-        .attr("d", smaLine(quotes.slice(getSmaStartingIndex(quotes))));
+        .attr("d", smaLine('sma1')(getQuotesOfSma(quotes, 'sma1')))
+        .attr('stroke',colorScheme('sma1'));
+    g.append("path")
+        .attr("class", "sma")
+        .attr("d", smaLine('sma2')(getQuotesOfSma(quotes, 'sma2')))
+        .attr('stroke',colorScheme('sma2'));
+    g.append("path")
+        .attr("class", "sma")
+        .attr("d", smaLine('sma3')(getQuotesOfSma(quotes, 'sma3')))
+        .attr('stroke',colorScheme('sma3'));
 }
 
 const parseQuotes = (quote) => {
@@ -189,7 +198,7 @@ const getTransactions = (quotes, period, tolerance = 0) => {
     let transactions = [];
     for (let i = period - 1; i < quotes.length; i++) {
         let { Close, sma } = quotes[i];
-        if (!bought && Close > sma+tolerance) {
+        if (!bought && Close > sma + tolerance) {
             bought = true;
             transaction['S.No'] = transactions.length + 1;
             transaction['buy price'] = _.round(Close);
@@ -207,11 +216,12 @@ const getTransactions = (quotes, period, tolerance = 0) => {
     return transactions;
 }
 
-const analyseData = (quotes, period, offset = 0) => {
-    for (let i = period; i < quotes.length + 1 - offset; i++) {
+const analyseData = (quotes, period, id) => {
+    if (period <= 0) return;
+    for (let i = period; i < quotes.length + 1; i++) {
         let sum = quotes.slice(i - period, i).reduce((a, b) => a + b.Close, 0);
         const sma = _.round(sum / period);
-        quotes[i - 1 + offset].sma = sma
+        quotes[i - 1][id] = sma
     }
 }
 
@@ -287,7 +297,7 @@ const readValue = id => d3.select(id).property('value')
 const updateTransactionsAndAnalysis = (quotes) => {
     const period = + readValue('#sma') || 100;
     const tolerance = + readValue('#tolerance') || 0;
-    analyseData(quotes, period);
+    analyseData(quotes, period, 'sma');
     const transactions = getTransactions(quotes, period, tolerance);
     updateTransactions(transactions);
     const analysis = analyseTransactions(transactions);
@@ -296,7 +306,8 @@ const updateTransactionsAndAnalysis = (quotes) => {
 
 
 const startVisualization = (quotes) => {
-    analyseData(quotes, 100);
+    analyseData(quotes, 100, 'sma1');
+    analyseData(quotes, 100, 'sma');
     const transactions = getTransactions(quotes, 100);
     showTransactions(transactions);
     const analysis = analyseTransactions(transactions);
@@ -305,12 +316,9 @@ const startVisualization = (quotes) => {
     updateQuotes(quotes, "Date", "Close");
     showSlider(quotes);
 
-    d3.select('#sma-period')
+    d3.selectAll('.input input')
         .attr('max', quotes.length)
-        .on('change', updateSmaAndOffset.bind(null, quotes, quotes))
-    d3.select('#offset')
-        .attr('max', quotes.length)
-        .on('change', updateSmaAndOffset.bind(null, quotes, quotes))
+        .on('change', updateSMAs.bind(null, quotes, quotes))
 
     d3.selectAll('.user-input input')
         .attr('max', quotes.length)

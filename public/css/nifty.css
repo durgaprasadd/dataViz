@@ -25,7 +25,6 @@ html{
 
 .sma{
     fill: none;
-    stroke: blue;
     stroke-width: 2px;
 }
 
@@ -35,7 +34,7 @@ html{
     justify-content: space-around;
 }
 
-#sma-period{
+.input input{
     width: 120px;
 }
 
