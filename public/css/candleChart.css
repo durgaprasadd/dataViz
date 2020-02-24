@@ -1,0 +1,45 @@
+html body {
+    margin: 20px;
+}
+
+#chart-area svg{
+    border: 1px solid black;
+}
+
+.axis-label{
+    font-size: 20px;
+    text-anchor: middle;
+}
+
+.y.axis-label{
+    transform: rotate(-90deg);
+}
+
+.x-axis text{
+      font-weight: bold;
+}
+
+.x-axis .tick line{
+    stroke: lightgray;
+}
+
+.y-axis .tick line{
+    stroke: lightgray;
+}
+.candle .body{
+    stroke:black;
+}
+
+.candle .down{
+    fill: darkgrey;
+}
+
+.candle .up{
+    fill: lightgrey;
+}
+
+.candle .wick {
+    fill: black;
+    stroke: black;
+    stroke-width: 2;
+}
